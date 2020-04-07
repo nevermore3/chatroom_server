@@ -40,7 +40,7 @@
 #define THREAD_NUM 4
 
 
-#define CAUTION "There is only you in the chat room"
+#define LEAVE "Client : #%d  leave the chat room"
 
 #define NO_ONE "#%d is not in the chat room"
 

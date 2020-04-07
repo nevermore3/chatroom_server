@@ -231,7 +231,7 @@ int Server::Process(int clientFd, struct sockaddr_in &address) {
     if (flag == -1) {
         stringstream removeInfo;
         removeInfo << inet_ntoa(address.sin_addr) << ":" << ntohs(address.sin_port);
-        RemoveClient(removeInfo.str());
+        RemoveClient(clientFd, removeInfo.str());
     }
 
     // 等待5s,观察多线程机制
@@ -244,10 +244,20 @@ Server::~Server() {
     Close();
 }
 
-void Server::RemoveClient(string clientInfo) {
-    unique_lock<mutex>clientListLock (clientListMutex_);
-    clientList_.remove(clientInfo);
-    cout<< clientInfo << " 被移除Client List, 当前size " << clientList_.size() << endl;
+void Server::RemoveClient(int clientFd, string clientInfo) {
+    {
+        unique_lock<mutex>clientListLock (clientListMutex_);
+        clientList_.remove(clientInfo);
+        chatRoom_.remove(clientFd);
+        cout<< clientInfo << " 被移除Client List, 当前size " << clientList_.size() << endl;
+    }
+
+    // 向chatroom中的所有客户端发消息通知
+    if (!chatRoom_.empty()) {
+        string msg(LEAVE);
+        SendMessageToAll(clientFd, msg);
+    }
+
 }
 
 
@@ -257,17 +267,12 @@ int Server::SendMessageToAll(int fromId, string &msg) {
     char sendBuf[BUF_SIZE] = {0};
     bzero(sendBuf, BUF_SIZE);
 
-    if (chatRoom_.size() == 1) {
-        if (send(fromId, CAUTION, strlen(CAUTION), 0) < 0) {
-            perror("send message to all send error");
-            exit(-1);
-        }
-        return 1;
-    }
+
     // 向聊天室的所有人发送信息，包括自己
     sprintf(sendBuf, "client %d say : %s", fromId, msg.c_str());
 
     for (auto clientId : chatRoom_) {
+
         if (send(clientId, sendBuf, strlen(sendBuf), 0) < 0) {
             perror("send message to all send error");
         }

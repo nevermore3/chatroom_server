@@ -32,7 +32,7 @@ public:
     ~Server();
 
 private:
-    void RemoveClient(string clientInfo);
+    void RemoveClient(int clientFd, string clientInfo);
 
     void AddFd(int epFd, int fd);
 

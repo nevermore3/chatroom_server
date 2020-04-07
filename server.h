@@ -9,6 +9,9 @@
 #include "thread.h"
 using namespace std;
 
+// 对客户端发送过来的数据进行切分，找出all或者目标fd
+pair<int, string> ParseData(string data);
+
 class Server {
 public:
     Server();
@@ -34,7 +37,7 @@ private:
     void AddFd(int epFd, int fd);
 
     //给客户端发送欢迎消息
-    static void SendWelcome(int clientFd);
+    void SendWelcome(int clientFd);
 
     int Process(int clientFd, struct sockaddr_in &address);
 

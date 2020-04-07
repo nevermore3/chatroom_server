@@ -121,6 +121,8 @@ void Server::Start() {
                 AddFd(epFd_, clientFd);
 
                 clientList_.push_back(clientInfo.str());
+                chatRoom_.push_back(clientFd);
+
                 cout<<"Client Size :" <<clientList_.size()<<endl;
                 SendWelcome(clientFd);
             } else {
@@ -150,12 +152,17 @@ void Server::Start() {
 }
 
 void Server::SendWelcome(int clientFd) {
+    /*
+     *  向聊天室的所有人发送welcome消息，以便让其他client知道该客户端的fd
+     */
     char message[BUF_SIZE];
     bzero(message, BUF_SIZE);
     sprintf(message, SERVER_WELCOME, clientFd);
-    if (send(clientFd, message, strlen(message), 0) < 0) {
-        perror("send welcome error");
-        exit(-1);
+    for (auto fd : chatRoom_) {
+        if (send(fd, message, strlen(message), 0) < 0) {
+            perror("send welcome error");
+            exit(-1);
+        }
     }
 }
 
@@ -194,22 +201,27 @@ int Server::Process(int clientFd, struct sockaddr_in &address) {
             }
             break;
         } else {
-            /*
-             *  1.接受client发送过来的数据
-             *  2.给client回复信息
-             */
             if (!strcmp(recvBuf, "exit")) {
                 cout << clientInfo.str() << " 打出exit, 并中断了与服务器的链接" << endl;
                 flag = -1;
             } else {
                 cout << clientInfo.str() << " : " << string(recvBuf) << endl;
-
-                // 给客户端发送确认数据
-                sprintf(sendBuf, "Server Receive : %s .", recvBuf);
-                if (send(clientFd, sendBuf, strlen(sendBuf), 0) < 0) {
-                    perror("server send error");
-                    exit(-1);
+                /*
+                 *1. 解析客户端发过来的数据
+                 * 对 recvbuf进行切分，找出all或者目标fd
+                 */
+                pair<int, string>msg = ParseData(string(recvBuf));
+                if (msg.first == -1) {
+                    SendMessageToAll(clientFd, msg.second);
+                } else {
+                    SendMessageToOne(clientFd, msg.first, msg.second);
                 }
+
+//                sprintf(sendBuf, "Server Receive : %s .", recvBuf);
+//                if (send(clientFd, sendBuf, strlen(sendBuf), 0) < 0) {
+//                    perror("server send error");
+//                    exit(-1);
+//                }
             }
         }
     } while (run_);  //接受缓冲区消息大小大于BUF_SIZE，循环多次接受
@@ -237,6 +249,8 @@ void Server::RemoveClient(string clientInfo) {
     clientList_.remove(clientInfo);
     cout<< clientInfo << " 被移除Client List, 当前size " << clientList_.size() << endl;
 }
+
+
 
 int Server::SendMessageToAll(int fromId, string &msg) {
 
@@ -282,3 +296,35 @@ int Server::SendMessageToOne(int fromId, int toId, string &msg) {
     return 1;
 }
 
+pair<int, string> ParseData(string data) {
+    pair<int, string>ret;
+    if (data[0] != '\\') {
+        ret.first = -1;
+        ret.second = data;
+        return ret;
+    }
+
+    data.erase(0,1);
+    const char* delims = " \t";
+    vector<string>tokens;
+    int len = data.size();
+    char *tok;
+    char *line = (char*)malloc(len + 1);
+    memset(line, 0, len + 1);
+    strcpy(line, data.c_str());
+
+    tok = strtok(line, delims);
+    while (tok != nullptr)
+    {
+        tokens.emplace_back(tok);
+        tok = strtok(nullptr, delims);
+    }
+
+    ret.second = tokens[1];
+    if (tokens[0] == "ALL" || tokens[0] == "all") {
+        ret.first = -1;
+    } else {
+        ret.first = atoi(tokens[0].c_str());
+    }
+    return ret;
+}

@@ -31,7 +31,7 @@
 #define BUF_SIZE 2048
 
 // 新客户端收到的欢迎信息
-#define SERVER_WELCOME  "Welcome you join to the chat Room, you ID is : #%d"
+#define SERVER_WELCOME  "Welcome new client join to the chat Room, ID is : #%d"
 
 //epoll 支持的最大句柄数
 #define EPOLL_SIZE  5000

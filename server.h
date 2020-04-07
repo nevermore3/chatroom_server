@@ -45,6 +45,8 @@ private:
 
     int SendMessageToAll(int fromId, string &msg);
 
+    void CurrentClient(int clientFd);
+
 private:
     //服务器地址serverAddr信息
     struct sockaddr_in serverAddr_;

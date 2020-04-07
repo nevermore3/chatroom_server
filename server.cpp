@@ -151,33 +151,7 @@ void Server::Start() {
     }
 }
 
-void Server::SendWelcome(int clientFd) {
-    /*
-     *  向聊天室的所有人发送welcome消息，以便让其他client知道该客户端的fd
-     */
-    char message[BUF_SIZE];
-    bzero(message, BUF_SIZE);
-    sprintf(message, SERVER_WELCOME, clientFd);
-    for (auto fd : chatRoom_) {
-        if (send(fd, message, strlen(message), 0) < 0) {
-            perror("send welcome error");
-            exit(-1);
-        }
-    }
-    // 向客户端发送当前在chat room的所有fd
-    string info = "当前聊天室有 : ";
-    for (auto fd : chatRoom_) {
-        if (fd == clientFd) {
-            continue;
-        }
-        info += to_string(fd);
-        info += "\t";
-    }
-    if (send(clientFd, info.c_str(), info.size(), 0) < 0) {
-        perror("send welcome error");
-        exit(-1);
-    }
-}
+
 
 int Server::Process(int clientFd, struct sockaddr_in &address) {
     /*
@@ -217,6 +191,8 @@ int Server::Process(int clientFd, struct sockaddr_in &address) {
             if (!strcmp(recvBuf, "exit")) {
                 cout << clientInfo.str() << " 打出exit, 并中断了与服务器的链接" << endl;
                 flag = -1;
+            } else if (!strcmp(recvBuf, "who")) {
+                CurrentClient(clientFd);
             } else {
                 cout << clientInfo.str() << " : " << string(recvBuf) << endl;
                 /*
@@ -271,7 +247,21 @@ void Server::RemoveClient(int clientFd, string clientInfo) {
 
 }
 
-
+void Server::SendWelcome(int clientFd) {
+    /*
+     *  向聊天室的所有人发送welcome消息，以便让其他client知道该客户端的fd
+     */
+    char message[BUF_SIZE];
+    bzero(message, BUF_SIZE);
+    sprintf(message, SERVER_WELCOME, clientFd);
+    for (auto fd : chatRoom_) {
+        if (send(fd, message, strlen(message), 0) < 0) {
+            perror("send welcome error");
+            exit(-1);
+        }
+    }
+    CurrentClient(clientFd);
+}
 
 int Server::SendMessageToAll(int fromId, string &msg) {
 
@@ -310,6 +300,28 @@ int Server::SendMessageToOne(int fromId, int toId, string &msg) {
     return 1;
 }
 
+void Server::CurrentClient(int clientFd) {
+    // 向客户端发送当前在chat room的所有fd
+    bool flag = true;
+    string info = "当前聊天室有 : ";
+    for (auto fd : chatRoom_) {
+        if (fd == clientFd) {
+            continue;
+        }
+        flag = false;
+        info += to_string(fd);
+        info += "\t";
+    }
+    if (flag) {
+        info += " 就你自己 ：";
+        info += to_string(clientFd);
+    }
+    if (send(clientFd, info.c_str(), info.size(), 0) < 0) {
+        perror("send welcome error");
+        exit(-1);
+    }
+}
+
 pair<int, string> ParseData(string data) {
     pair<int, string>ret;
     if (data[0] != '\\') {
@@ -333,8 +345,14 @@ pair<int, string> ParseData(string data) {
         tokens.emplace_back(tok);
         tok = strtok(nullptr, delims);
     }
-
-    ret.second = tokens[1];
+    string message;
+    for (unsigned i = 1; i < tokens.size(); i++) {
+        message += tokens[i];
+        if (i != tokens.size() - 1) {
+            message += " ";
+        }
+    }
+    ret.second = message;
     if (tokens[0] == "ALL" || tokens[0] == "all") {
         ret.first = -1;
     } else {

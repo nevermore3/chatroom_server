@@ -38,6 +38,10 @@ private:
 
     int Process(int clientFd, struct sockaddr_in &address);
 
+    int SendMessageToOne(int fromId, int toId, string &msg);
+
+    int SendMessageToAll(int fromId, string &msg);
+
 private:
     //服务器地址serverAddr信息
     struct sockaddr_in serverAddr_;
@@ -54,7 +58,10 @@ private:
     //客户端列表 IP:Port 认定一个client
     list<string>clientList_;
 
-    bool stop_;
+    // 聊天室的client所对应的fd,list 插入删除方便
+    list<int>chatRoom_;
+
+    bool run_;
 
     // ThreadPool
     ThreadPool *threadPool_;

@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <list>
+#include <algorithm>
 
 
 //服务器ip
@@ -37,5 +38,10 @@
 
 // 线程池线程个数
 #define THREAD_NUM 4
+
+
+#define CAUTION "There is only you in the chat room"
+
+#define NO_ONE "#%d is not in the chat room"
 
 #endif //SOCKET_COMMON_H

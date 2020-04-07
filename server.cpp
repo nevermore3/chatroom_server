@@ -20,7 +20,7 @@ void Server::Init() {
 
     cout << "Main Thread : " << this_thread::get_id() << "  Start" << endl;
 
-    stop_ = true;
+    run_ = true;
 
     // 线程池初始化
     threadPool_ = new ThreadPool(THREAD_NUM);
@@ -88,7 +88,7 @@ void Server::Start() {
 
     Init();
 
-    while(stop_) {
+    while(run_) {
         // 若没有事件则一直阻塞
         int readyNum = epoll_wait(epFd_, events, EPOLL_SIZE, -1);
 
@@ -212,7 +212,7 @@ int Server::Process(int clientFd, struct sockaddr_in &address) {
                 }
             }
         }
-    } while (stop_);  //接受缓冲区消息大小大于BUF_SIZE，循环多次接受
+    } while (run_);  //接受缓冲区消息大小大于BUF_SIZE，循环多次接受
 
 
     // 在多线程内处理clientList_
@@ -236,5 +236,49 @@ void Server::RemoveClient(string clientInfo) {
     unique_lock<mutex>clientListLock (clientListMutex_);
     clientList_.remove(clientInfo);
     cout<< clientInfo << " 被移除Client List, 当前size " << clientList_.size() << endl;
+}
+
+int Server::SendMessageToAll(int fromId, string &msg) {
+
+    char sendBuf[BUF_SIZE] = {0};
+    bzero(sendBuf, BUF_SIZE);
+
+    if (chatRoom_.size() == 1) {
+        if (send(fromId, CAUTION, strlen(CAUTION), 0) < 0) {
+            perror("send message to all send error");
+            exit(-1);
+        }
+        return 1;
+    }
+    // 向聊天室的所有人发送信息，包括自己
+    sprintf(sendBuf, "client %d say : %s", fromId, msg.c_str());
+
+    for (auto clientId : chatRoom_) {
+        if (send(clientId, sendBuf, strlen(sendBuf), 0) < 0) {
+            perror("send message to all send error");
+        }
+    }
+    return 1;
+}
+
+int Server::SendMessageToOne(int fromId, int toId, string &msg) {
+    char sendBuf[BUF_SIZE] = {0};
+    bzero(sendBuf, BUF_SIZE);
+
+    if (find(chatRoom_.begin(), chatRoom_.end(), toId) == chatRoom_.end()) {
+        sprintf(sendBuf, NO_ONE, toId);
+        if (send(fromId, sendBuf, strlen(sendBuf), 0) < 0) {
+            perror("send message to one send error");
+            exit(-1);
+        }
+        return 1;
+    }
+
+    sprintf(sendBuf, "client %d say : %s", fromId, msg.c_str());
+    if (send(toId, sendBuf, strlen(sendBuf), 0) < 0) {
+        perror("send message to one send error");
+        exit(-1);
+    }
+    return 1;
 }
 

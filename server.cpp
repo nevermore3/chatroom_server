@@ -102,7 +102,7 @@ void Server::Start() {
         for (int i = 0; i < readyNum; i++) {
             // 异常处理
             if ((events[i].events & EPOLLERR) ||(events[i].events & EPOLLHUP) || (!(events[i].events &EPOLLIN))) {
-                    cout << "epoll error" << endl;
+                    //cout << "epoll error" << endl;
                     close(events[i].data.fd);
                     continue;
             }
@@ -164,6 +164,19 @@ void Server::SendWelcome(int clientFd) {
             exit(-1);
         }
     }
+    // 向客户端发送当前在chat room的所有fd
+    string info = "当前聊天室有 : ";
+    for (auto fd : chatRoom_) {
+        if (fd == clientFd) {
+            continue;
+        }
+        info += to_string(fd);
+        info += "\t";
+    }
+    if (send(clientFd, info.c_str(), info.size(), 0) < 0) {
+        perror("send welcome error");
+        exit(-1);
+    }
 }
 
 int Server::Process(int clientFd, struct sockaddr_in &address) {
@@ -217,11 +230,6 @@ int Server::Process(int clientFd, struct sockaddr_in &address) {
                     SendMessageToOne(clientFd, msg.first, msg.second);
                 }
 
-//                sprintf(sendBuf, "Server Receive : %s .", recvBuf);
-//                if (send(clientFd, sendBuf, strlen(sendBuf), 0) < 0) {
-//                    perror("server send error");
-//                    exit(-1);
-//                }
             }
         }
     } while (run_);  //接受缓冲区消息大小大于BUF_SIZE，循环多次接受
@@ -235,7 +243,7 @@ int Server::Process(int clientFd, struct sockaddr_in &address) {
     }
 
     // 等待5s,观察多线程机制
-    this_thread::sleep_for(chrono::seconds(5));
+    this_thread::sleep_for(chrono::seconds(1));
 
     return flag;
 }
@@ -254,7 +262,10 @@ void Server::RemoveClient(int clientFd, string clientInfo) {
 
     // 向chatroom中的所有客户端发消息通知
     if (!chatRoom_.empty()) {
-        string msg(LEAVE);
+        char sendBuf[BUF_SIZE] = {0};
+        bzero(sendBuf, BUF_SIZE);
+        sprintf(sendBuf, LEAVE, clientFd);
+        string msg(sendBuf);
         SendMessageToAll(clientFd, msg);
     }
 
@@ -266,15 +277,13 @@ int Server::SendMessageToAll(int fromId, string &msg) {
 
     char sendBuf[BUF_SIZE] = {0};
     bzero(sendBuf, BUF_SIZE);
-
-
     // 向聊天室的所有人发送信息，包括自己
     sprintf(sendBuf, "client %d say : %s", fromId, msg.c_str());
 
     for (auto clientId : chatRoom_) {
-
         if (send(clientId, sendBuf, strlen(sendBuf), 0) < 0) {
             perror("send message to all send error");
+            exit(-1);
         }
     }
     return 1;

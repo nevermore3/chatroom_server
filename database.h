@@ -51,6 +51,9 @@ private:
 
     MYSQL_ROW  row_;
 
+    // 多线程查询数据库时，加锁
+    mutex queryMutex_;
+
 };
 
 

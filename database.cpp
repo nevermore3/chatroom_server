@@ -71,10 +71,15 @@ string DataBase::ExeSQL(char *sql) {
         return string();
     }
 
-    if (mysql_query(connection_, sql)) {
-        perror("query error");
-        return string();
+    {
+        // 执行sql语句时，加锁，避免多线程问题
+        unique_lock<mutex> queryLock(queryMutex_);
+        if (mysql_query(connection_, sql)) {
+            perror("query error");
+            return string();
+        }
     }
+
 
     // 获取查询结果
     result_ = mysql_store_result(connection_);

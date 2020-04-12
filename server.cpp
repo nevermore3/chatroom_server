@@ -1,12 +1,11 @@
 #include "server.h"
 #include <iostream>
 #include <sstream>
-#include <mutex>
 #include "thread.h"
 using namespace std;
 
 Server::Server() {
-    cout<<"初始化服务器sockAddr信息"<<endl;
+    cout << "初始化服务器sockAddr信息" << endl;
     serverAddr_.sin_family = PF_INET;
     serverAddr_.sin_port = htons(SERVER_PORT);
     serverAddr_.sin_addr.s_addr = inet_addr(SERVER_IP);
@@ -21,8 +20,6 @@ Server::Server() {
 }
 
 void Server::Init() {
-    cout<<"Init"<<endl;
-
     cout << "Main Thread : " << this_thread::get_id() << "  Start" << endl;
 
     run_ = true;
@@ -58,6 +55,11 @@ void Server::Init() {
     //向epoll中添加监听事件
     AddFd(epFd_, listenFd_);
 
+
+    // 注册命令初始化
+
+
+    cout<<" Server Init"<<endl;
 }
 
 void Server::Close() {
@@ -193,6 +195,10 @@ int Server::Process(int clientFd, struct sockaddr_in &address) {
             }
             break;
         } else {
+
+            // 需要改造，否则命令越来越多的时候 不好维护
+            // 使用观察者模式
+
             if (!strcmp(recvBuf, "exit")) {
                 cout << clientInfo.str() << " 打出exit, 并中断了与服务器的链接" << endl;
                 flag = -1;
@@ -205,6 +211,8 @@ int Server::Process(int clientFd, struct sockaddr_in &address) {
                  * 对 recvbuf进行切分，找出all或者目标fd
                  */
                 pair<int, string>msg = ParseData(string(recvBuf));
+                // 将消息插入mysql中
+                db_->Insert(clientFd, msg.first, msg.second, const_cast<char*>(TABLE_NAME));
                 if (msg.first == -1) {
                     SendMessageToAll(clientFd, msg.second);
                 } else {

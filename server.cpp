@@ -13,6 +13,11 @@ Server::Server() {
 
     listenFd_ = 0;
     epFd_ = 0;
+
+    // 初始化数据库
+    db_ = make_shared<DataBase>();
+    db_->InitDB();
+
 }
 
 void Server::Init() {

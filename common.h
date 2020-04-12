@@ -44,4 +44,14 @@
 
 #define NO_ONE "#%d is not in the chat room"
 
+
+
+//-------------------DATABASE----------------/
+#define  DATABASE_ACCOUT  "jmq"
+#define DATABASE_PW  "hellohit"
+#define DB_NAME "chatInfo"
+#define HOST "127.0.0.1"
+#define TABLE_NAME "info"
+
+
 #endif //SOCKET_COMMON_H

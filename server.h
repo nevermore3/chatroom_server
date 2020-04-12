@@ -7,6 +7,7 @@
 
 #include "common.h"
 #include "thread.h"
+#include "database.h"
 using namespace std;
 
 // 对客户端发送过来的数据进行切分，找出all或者目标fd
@@ -70,6 +71,9 @@ private:
 
     // ThreadPool
     ThreadPool *threadPool_;
+
+    // database
+    shared_ptr<DataBase> db_;
 };
 
 // 服务器和客户端间传送数据的封装

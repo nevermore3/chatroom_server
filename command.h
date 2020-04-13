@@ -4,37 +4,46 @@
 
 #ifndef SERVER_COMMAND_H
 #define SERVER_COMMAND_H
-
+#include "server.h"
 #include <memory>
 #include "common.h"
+#include <map>
 
 using namespace std;
 // 观察着模式，用于处理客户端发送过来的命令
+class Server;
+class Message;
+
+shared_ptr<Message> ParseData(int clientFd, string data);
 
 class Command {
 public:
     virtual ~Command() = default;
 
-    virtual bool Execute(char *msg) = 0;
+    virtual bool Execute(const shared_ptr<Message>& msg, Server *server) = 0;
 
     virtual string GetName() = 0;
+
 };
 
 
 class CommandManager {
 public:
-    CommandManager();
+    CommandManager() = default;
 
-    void Register(string name, shared_ptr<Command> command);
+    void Register(const string& name, const shared_ptr<Command>& command);
 
-    void Register(shared_ptr<Command> command);
+    void Register(const shared_ptr<Command>& command);
 
+    void RemoveCommand(string name);
 
-    bool Execute(char *msg);
+    bool Execute(const shared_ptr<Message>& msg, Server *server);
 
 private:
     // 所有注册的命令
     vector<shared_ptr<Command>> commands_;
+
+    map<string, shared_ptr<Command>> nameCommands_;
 };
 
 
@@ -47,10 +56,10 @@ class Exit : public Command {
 public:
     string GetName() override;
 
-    bool Execute(char *msg) override;
+    bool Execute(const shared_ptr<Message> &msg, Server *server) override;
 
 private:
-    string name = "exit";
+    string name_ = "exit";
 
 };
 
@@ -59,12 +68,34 @@ class Who : public Command {
 public:
     string GetName() override;
 
-    bool Execute(char *msg) override;
+    bool Execute(const shared_ptr<Message> &msg, Server *server) override;
 private:
-    string name = "who";
+    string name_ = "who";
 };
 
-//
 
+//send message
+class SendMessage : public Command {
+public:
+    string GetName() override ;
+
+    bool Execute(const shared_ptr<Message> &msg, Server *server) override ;
+
+
+private:
+    string name_ = "message";
+};
+
+
+// 查询历史日志
+class History : public  Command {
+public:
+    string GetName() override ;
+
+    bool Execute(const shared_ptr<Message> &msg, Server *server) override ;
+
+private:
+    string name_ = "history";
+};
 
 #endif //SERVER_COMMAND_H

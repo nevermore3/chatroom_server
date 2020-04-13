@@ -27,6 +27,9 @@ void Server::Init() {
     // 线程池初始化
     threadPool_ = new ThreadPool(THREAD_NUM);
 
+    // 注册命令初始化
+    RegisterCommand();
+
     listenFd_ = socket(PF_INET, SOCK_STREAM, 0);
     if (listenFd_ < 0) {
         perror("Create socket Error");
@@ -51,14 +54,8 @@ void Server::Init() {
         perror("epoll_create Error");
         exit( -1);
     }
-
     //向epoll中添加监听事件
     AddFd(epFd_, listenFd_);
-
-
-    // 注册命令初始化
-
-
     cout<<" Server Init"<<endl;
 }
 
@@ -140,7 +137,7 @@ void Server::Start() {
                     perror("getpeername error");
                     exit(-1);
                 }
-                struct sockaddr_in *address = (struct sockaddr_in *) &clientAddress;
+                auto *address = (struct sockaddr_in *) &clientAddress;
 
                 // 消息事件, 处理sockFd传送过来的消息，并发给其客户端
 
@@ -166,7 +163,7 @@ int Server::Process(int clientFd, struct sockaddr_in &address) {
      */
     cout << "Thread : " << this_thread::get_id() << "  Work" << endl;
 
-    int flag = 1;  // -1: clientFd 掉线  1: 正常
+    bool flag = 1;  // false: clientFd 掉线  true: 正常
     stringstream clientInfo;
     clientInfo << "Client:" << inet_ntoa(address.sin_addr) << ":" << ntohs(address.sin_port);
 
@@ -181,7 +178,7 @@ int Server::Process(int clientFd, struct sockaddr_in &address) {
         if (len == 0) {
             // 接受缓冲区接受数据时客户端断开链接 client 调用close(socket)
             cout << clientInfo.str() << "    断开链接" << endl;
-            flag = -1;
+            flag = false;
             break;
         } else if (len == -1) {
             /*
@@ -191,41 +188,24 @@ int Server::Process(int clientFd, struct sockaddr_in &address) {
                 cout<<"-------------------"<<endl;
             } else {
                 perror("Recv error");
-                flag = -1;
+                flag = false;
             }
             break;
         } else {
 
             // 需要改造，否则命令越来越多的时候 不好维护
             // 使用观察者模式
+            shared_ptr<Message> message = ParseData(clientFd, string(recvBuf));
+            string dbmsg(message->content_);
+            db_->Insert(message->fromID_, message->toID_, dbmsg, const_cast<char*>(TABLE_NAME));
+            flag = manager_->Execute(message, Server::GetInstance());
 
-            if (!strcmp(recvBuf, "exit")) {
-                cout << clientInfo.str() << " 打出exit, 并中断了与服务器的链接" << endl;
-                flag = -1;
-            } else if (!strcmp(recvBuf, "who")) {
-                CurrentClient(clientFd);
-            } else {
-                cout << clientInfo.str() << " : " << string(recvBuf) << endl;
-                /*
-                 *1. 解析客户端发过来的数据
-                 * 对 recvbuf进行切分，找出all或者目标fd
-                 */
-                pair<int, string>msg = ParseData(string(recvBuf));
-                // 将消息插入mysql中
-                db_->Insert(clientFd, msg.first, msg.second, const_cast<char*>(TABLE_NAME));
-                if (msg.first == -1) {
-                    SendMessageToAll(clientFd, msg.second);
-                } else {
-                    SendMessageToOne(clientFd, msg.first, msg.second);
-                }
-
-            }
         }
     } while (run_);  //接受缓冲区消息大小大于BUF_SIZE，循环多次接受
 
 
     // 在多线程内处理clientList_
-    if (flag == -1) {
+    if (!flag) {
         stringstream removeInfo;
         removeInfo << inet_ntoa(address.sin_addr) << ":" << ntohs(address.sin_port);
         RemoveClient(clientFd, removeInfo.str());
@@ -233,8 +213,7 @@ int Server::Process(int clientFd, struct sockaddr_in &address) {
 
     // 等待5s,观察多线程机制
     this_thread::sleep_for(chrono::seconds(1));
-
-    return flag;
+    return 1;
 }
 
 Server::~Server() {
@@ -254,8 +233,7 @@ void Server::RemoveClient(int clientFd, string clientInfo) {
         char sendBuf[BUF_SIZE] = {0};
         bzero(sendBuf, BUF_SIZE);
         sprintf(sendBuf, LEAVE, clientFd);
-        string msg(sendBuf);
-        SendMessageToAll(clientFd, msg);
+        SendMessageToAll(clientFd, sendBuf);
     }
 
 }
@@ -273,15 +251,14 @@ void Server::SendWelcome(int clientFd) {
             exit(-1);
         }
     }
-    CurrentClient(clientFd);
 }
 
-int Server::SendMessageToAll(int fromId, string &msg) {
+int Server::SendMessageToAll(int fromId, char *msg) {
 
     char sendBuf[BUF_SIZE] = {0};
     bzero(sendBuf, BUF_SIZE);
     // 向聊天室的所有人发送信息，包括自己
-    sprintf(sendBuf, "client %d say : %s", fromId, msg.c_str());
+    sprintf(sendBuf, "client %d say : %s", fromId, msg);
 
     for (auto clientId : chatRoom_) {
         if (send(clientId, sendBuf, strlen(sendBuf), 0) < 0) {
@@ -292,7 +269,7 @@ int Server::SendMessageToAll(int fromId, string &msg) {
     return 1;
 }
 
-int Server::SendMessageToOne(int fromId, int toId, string &msg) {
+int Server::SendMessageToOne(int fromId, int toId, char *msg) {
     char sendBuf[BUF_SIZE] = {0};
     bzero(sendBuf, BUF_SIZE);
 
@@ -305,7 +282,7 @@ int Server::SendMessageToOne(int fromId, int toId, string &msg) {
         return 1;
     }
 
-    sprintf(sendBuf, "client %d say : %s", fromId, msg.c_str());
+    sprintf(sendBuf, "client %d say : %s", fromId, msg);
     if (send(toId, sendBuf, strlen(sendBuf), 0) < 0) {
         perror("send message to one send error");
         exit(-1);
@@ -313,63 +290,17 @@ int Server::SendMessageToOne(int fromId, int toId, string &msg) {
     return 1;
 }
 
-void Server::CurrentClient(int clientFd) {
-    // 向客户端发送当前在chat room的所有fd
-    bool flag = true;
-    string info = "当前聊天室有 : ";
-    for (auto fd : chatRoom_) {
-        if (fd == clientFd) {
-            continue;
-        }
-        flag = false;
-        info += to_string(fd);
-        info += "\t";
-    }
-    if (flag) {
-        info += " 就你自己 ：";
-        info += to_string(clientFd);
-    }
-    if (send(clientFd, info.c_str(), info.size(), 0) < 0) {
-        perror("send welcome error");
-        exit(-1);
-    }
-}
+void Server::RegisterCommand() {
+    manager_ = make_shared<CommandManager>();
+    shared_ptr<Exit> exit = make_shared<Exit>();
+    manager_->Register(exit);
 
-pair<int, string> ParseData(string data) {
-    pair<int, string>ret;
-    if (data[0] != '\\') {
-        ret.first = -1;
-        ret.second = data;
-        return ret;
-    }
+    shared_ptr<Who> who = make_shared<Who>();
+    manager_->Register(who);
 
-    data.erase(0,1);
-    const char* delims = " \t";
-    vector<string>tokens;
-    int len = data.size();
-    char *tok;
-    char *line = (char*)malloc(len + 1);
-    memset(line, 0, len + 1);
-    strcpy(line, data.c_str());
+    shared_ptr<SendMessage> message = make_shared<SendMessage>();
+    manager_->Register(message);
 
-    tok = strtok(line, delims);
-    while (tok != nullptr)
-    {
-        tokens.emplace_back(tok);
-        tok = strtok(nullptr, delims);
-    }
-    string message;
-    for (unsigned i = 1; i < tokens.size(); i++) {
-        message += tokens[i];
-        if (i != tokens.size() - 1) {
-            message += " ";
-        }
-    }
-    ret.second = message;
-    if (tokens[0] == "ALL" || tokens[0] == "all") {
-        ret.first = -1;
-    } else {
-        ret.first = atoi(tokens[0].c_str());
-    }
-    return ret;
+    shared_ptr<History> history = make_shared<History>();
+    manager_->Register(history);
 }

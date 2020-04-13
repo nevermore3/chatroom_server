@@ -18,7 +18,7 @@ link_directories(/usr/lib/x86_64-linux-gnu)
 
 #exe
 #add_executable(${PROJECT_NAME} ${project_cpp})
-add_executable(${PROJECT_NAME} ${SOURCEHEAD} command.cpp command.h)
+add_executable(${PROJECT_NAME} ${SOURCEHEAD} command.cpp command.h utility.cpp utility.h)
 #add_executable(${PROJECT_NAME} main.cpp server.cpp server.h common.h thread.cpp thread.h database.cpp database.h)
 
 target_link_libraries(${PROJECT_NAME} mysqlclient)

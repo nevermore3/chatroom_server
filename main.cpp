@@ -3,7 +3,7 @@
 
 int main() {
 
-    Server server;
-    server.Start();
+    Server *server = Server::GetInstance();
+    server->Start();
     return 0;
 }

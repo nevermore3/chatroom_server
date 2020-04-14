@@ -19,7 +19,7 @@
 #include <cstring>
 #include <list>
 #include <algorithm>
-
+#include <mutex>
 
 //服务器ip
 #define SERVER_IP  "192.168.0.139"
@@ -43,5 +43,15 @@
 #define LEAVE "Client : #%d  leave the chat room"
 
 #define NO_ONE "#%d is not in the chat room"
+
+
+
+//-------------------DATABASE----------------/
+#define  DATABASE_ACCOUT  "jmq"
+#define DATABASE_PW  "hellohit"
+#define DB_NAME "chatInfo"
+#define HOST "127.0.0.1"
+#define TABLE_NAME "info"
+
 
 #endif //SOCKET_COMMON_H

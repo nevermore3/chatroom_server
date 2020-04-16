@@ -7,18 +7,15 @@
 
 #include <mysql/mysql.h>
 #include <string>
+#include <memory>
 #include "common.h"
 using namespace std;
 class DataBase {
 public:
-    DataBase() : user_(DATABASE_ACCOUT), passWord_(DATABASE_PW), dbName_(DB_NAME), host_(HOST) {
-        connection_ = mysql_init(nullptr);
-        if (connection_ == nullptr) {
-            perror("mysql init  error");
-            exit(-1);
-        }
-    };
-
+    static shared_ptr<DataBase> &GetInstance() {
+        static shared_ptr<DataBase> instance = make_shared<DataBase>();
+        return instance;
+    }
     ~DataBase();
 
     bool CreateTable(const char *tableName);
@@ -34,6 +31,15 @@ public:
     string AllLog();
 
     string ExeSQL(char *sql);
+
+public:
+    DataBase() : user_(DATABASE_ACCOUT), passWord_(DATABASE_PW), dbName_(DB_NAME), host_(HOST) {
+        connection_ = mysql_init(nullptr);
+        if (connection_ == nullptr) {
+            perror("mysql init  error");
+            exit(-1);
+        }
+    };
 
 private:
     const char *user_;

@@ -54,4 +54,23 @@
 #define TABLE_NAME "info"
 
 
+//--------------------Redis-------------------/
+#define  REDIS_HOST  "127.0.0.1"
+#define  REDIS_PORT  6379
+
+
+
+struct Message {
+    int type_;
+    int fromID_;
+    int toID_;
+    char content_[BUF_SIZE];
+    Message(int from, int to, std::string msg) {
+        fromID_ = from;
+        toID_ = to;
+        strncpy(content_, msg.c_str(), BUF_SIZE - 1);
+    }
+
+    Message() {}
+};
 #endif //SOCKET_COMMON_H

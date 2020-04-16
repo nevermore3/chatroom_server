@@ -9,6 +9,7 @@
 #include "thread.h"
 #include "database.h"
 #include "command.h"
+#include "cache.h"
 using namespace std;
 
 class CommandManager;
@@ -43,6 +44,9 @@ public:
         return db_;
     }
 
+    inline Cache *GetCache() {
+        return cache_;
+    }
     ~Server();
 
     int SendMessageToOne(int fromId, int toId, char *msg);
@@ -61,6 +65,9 @@ private:
 
     // 命令注册
     void RegisterCommand();
+
+    // 插入缓存
+
 
 private:
     //服务器地址serverAddr信息
@@ -81,30 +88,21 @@ private:
     // 聊天室的client所对应的fd,list 插入删除方便
     list<int>chatRoom_;
 
-    bool run_{};
+    bool run_;
 
     // ThreadPool
-    ThreadPool *threadPool_{};
+    ThreadPool *threadPool_;
 
     // database
     shared_ptr<DataBase> db_;
+
+    // redis
+    Cache  *cache_;
 
     //命令管理
     shared_ptr<CommandManager> manager_;
 
 };
 
-struct Message {
-    int type_;
-    int fromID_;
-    int toID_;
-    char content_[BUF_SIZE];
-    Message(int from, int to, string msg) {
-        fromID_ = from;
-        toID_ = to;
-        strncpy(content_, msg.c_str(), BUF_SIZE - 1);
-    }
 
-    Message() {}
-};
 #endif //SOCKET_SERVER_H

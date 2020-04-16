@@ -14,8 +14,11 @@ Server::Server() {
     epFd_ = 0;
 
     // 初始化数据库
-    db_ = make_shared<DataBase>();
+    db_ = DataBase::GetInstance();
     db_->InitDB();
+
+    // 初始化redis
+    cache_ = Cache::GetInstance();
 
 }
 
@@ -198,6 +201,7 @@ int Server::Process(int clientFd, struct sockaddr_in &address) {
             shared_ptr<Message> message = ParseData(clientFd, string(recvBuf));
             string dbmsg(message->content_);
             db_->Insert(message->fromID_, message->toID_, dbmsg, const_cast<char*>(TABLE_NAME));
+            cache_->Insert(message);
             flag = manager_->Execute(message, Server::GetInstance());
 
         }
